@@ -1,87 +1,99 @@
 FROM debian:jessie
 MAINTAINER Steve Hibit <sdhibit@gmail.com>
 
+# Let the container know that there is no tty
 ENV DEBIAN_FRONTEND noninteractive
 
-RUN apt-get update && apt-get upgrade -y
+# Exclude docs and man pages
+ADD excludes /etc/dpkg/dpkg.cfg.d/excludes
 
-# Install Oracle Java
-RUN \
-	echo "deb http://ppa.launchpad.net/webupd8team/java/ubuntu trusty main" >> /etc/apt/sources.list && \
-	echo "deb-src http://ppa.launchpad.net/webupd8team/java/ubuntu trusty main" >> /etc/apt/sources.list && \
-	apt-key adv --keyserver keyserver.ubuntu.com --recv-keys EEA14886 && \
-	apt-get update && \
-	echo oracle-java8-installer shared/accepted-oracle-license-v1-1 select true | debconf-set-selections && \
-	apt-get install -y oracle-java8-installer && \
-	apt-get install -y oracle-java8-set-default
+# Install Apt Packages
+RUN apt-get update && apt-get install -y \
+  freerdp-x11 \
+  gcc \
+  libcairo2-dev \
+  libfreerdp-dev \
+  libossp-uuid-dev \
+  libpango-1.0-0 \
+  libpango1.0-dev \
+  libpng12-dev \
+  libpulse-dev \
+  libssh-dev \
+  libssh2-1 \
+  libssh2-1-dev \
+  libssl1.0.0 \
+  libtelnet-dev \
+  libvncserver-dev \
+  libvorbis-dev \
+  make \
+  openjdk-7-jre-headless \
+  supervisor \
+  tomcat7 \ 
+  wget \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/* \ 
+     /tmp/* \ 
+     /var/tmp/* \
+     /usr/share/man \ 
+     /usr/share/groff \ 
+     /usr/share/info \
+     /usr/share/lintian \ 
+     /usr/share/linda \ 
+     /var/cache/man \
+  && (( find /usr/share/doc -depth -type f ! -name copyright|xargs rm || true )) \
+  && (( find /usr/share/doc -empty|xargs rmdir || true )) 
 
-# Set Java environment variables
-ENV JAVA_HOME /usr/lib/jvm/java-8-oracle
-ENV JRE_HOME /usr/lib/jvm/java-8-oracle/jre
-ENV PATH $PATH:$JAVA_HOME/bin:$JRE_HOME
-
-RUN apt-get install -y \
- supervisor wget make \
- tomcat7 tomcat7-admin tomcat7-docs \
- libcairo2-dev libpng12-dev uuid libossp-uuid-dev \
- libfreerdp-dev freerdp-x11 libpango-1.0-0 libpango1.0-dev \
- libssh2-1 libssh2-1-dev libssh-dev libtelnet-dev libvncserver-dev \
- libpulse-dev libssl1.0.0 gcc libvorbis-dev 
-
-# Set Tomcat environment variables
-ENV CATALINA_BASE /var/lib/tomcat7
-ENV CATALINA_HOME /usr/share/tomcat7 
-
-RUN mkdir -p $CATALINA_BASE/temp
-ADD ./tomcat/server.xml $CATALINA_BASE/conf/server.xml
-
-RUN mkdir /etc/guacamole
-
+ENV GUACAMOLE_VERSION 0.9.3
 ENV GUACAMOLE_HOME /etc/guacamole
+ENV TOMCAT_VERSION tomcat7
+ENV CATALINA_BASE /var/lib/tomcat7
+ENV CATALINA_HOME /usr/share/tomcat7
+ENV MYSQL_CONN_VERSION 5.1.34 
 
-#Install Guacamole Server
-RUN wget 'http://downloads.sourceforge.net/project/guacamole/current/source/guacamole-server-0.9.2.tar.gz' -O /etc/guacamole/guacamole-server-0.9.2.tar.gz && \
- cd /etc/guacamole && \
- tar xvzf ./guacamole-server-0.9.2.tar.gz && \
- mv ./guacamole-server-0.9.2 ./guacamole-server && \
- cd guacamole-server && \
- ./configure --with-init-dir=/etc/init.d && \
- make && \
- make install && \
- update-rc.d guacd defaults && \
- ldconfig
+WORKDIR /tmp
 
-#Install Guacamole Client
-RUN mkdir -p /var/lib/guacamole && \
- mkdir -p $CATALINA_BASE/temp && \
- mkdir $CATALINA_HOME/.guacamole && \
- wget 'http://downloads.sourceforge.net/project/guacamole/current/binary/guacamole-0.9.2.war' -O /var/lib/guacamole/guacamole.war
+# Intall Guacamole Client and Server
+RUN wget http://downloads.sourceforge.net/project/guacamole/current/source/guacamole-server-${GUACAMOLE_VERSION}.tar.gz \
+  && wget http://downloads.sourceforge.net/project/guacamole/current/binary/guacamole-${GUACAMOLE_VERSION}.war \
+  && mkdir -p ${GUACAMOLE_HOME} \
+  && mkdir -p ${CATALINA_HOME}/.guacamole \
+  && mkdir -p /var/lib/guacamole/classpath \
+  && mv guacamole-${GUACAMOLE_VERSION}.war /var/lib/guacamole/guacamole.war \
+  && tar -xvzf guacamole-server-${GUACAMOLE_VERSION}.tar.gz --strip-components 1 \
+  && ./configure \
+  && make \
+  && make install \
+  && ldconfig \
+  && ln -s /var/lib/guacamole/guacamole.war ${CATALINA_BASE}/webapps \
+  && ln -s ${GUACAMOLE_HOME}/guacamole.properties /usr/share/tomcat7/.guacamole \
+  && rm -rf /tmp/*
 
-ADD ./config/guacamole.properties /etc/guacamole/
-ADD ./config/user-mapping.xml /etc/guacamole/
-
-ADD ./ssl/guacd.pem /etc/ssl/certs/guacd.pem
-ADD ./ssl/guacd.key /etc/ssl/private/guacd.key
-
-RUN chmod 600 /etc/ssl/private/guacd.key && \
- chmod 640 /etc/ssl/certs/guacd.pem
-
-RUN ln -s /etc/guacamole/guacamole.properties $CATALINA_HOME/.guacamole/guacamole.properties && \
- ln -s /var/lib/guacamole/guacamole.war $CATALINA_BASE/webapps/guacamole.war
-
-RUN chmod 755 /etc/guacamole && \
- chmod 644 /etc/guacamole/guacamole.properties && \
- chmod 650 /etc/guacamole/user-mapping.xml && \
- chown root:tomcat7 -R /etc/guacamole/* && \
- chown root:tomcat7 -R $CATALINA_BASE/webapps/*
-
-ADD ./supervisor/supervisor.conf /etc/supervisor/supervisor.conf
-ADD ./supervisor/tomcat7.sv.conf /etc/supervisor/conf.d/
+ADD ./config/* /etc/guacamole/
+ADD ./supervisor/supervisor.conf /etc/supervisor/
 ADD ./supervisor/guacd.sv.conf /etc/supervisor/conf.d/
+ADD ./supervisor/tomcat7.sv.conf /etc/supervisor/conf.d/
 
-EXPOSE 8080
+# Add Extensions to Guacamole
+RUN wget http://downloads.sourceforge.net/project/guacamole/current/extensions/guacamole-auth-mysql-${GUACAMOLE_VERSION}.tar.gz \
+  && wget http://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-${MYSQL_CONN_VERSION}.tar.gz \
+  && wget http://sourceforge.net/projects/guacamole/files/current/extensions/guacamole-auth-ldap-${GUACAMOLE_VERSION}.tar.gz \
+  && wget http://sourceforge.net/projects/guacamole/files/current/extensions/guacamole-auth-noauth-${GUACAMOLE_VERSION}.tar.gz \
+  && tar -xvzf guacamole-auth-mysql-${GUACAMOLE_VERSION}.tar.gz \
+  && mv guacamole-auth-mysql-${GUACAMOLE_VERSION}/lib/* /var/lib/guacamole/classpath/ \
+  && tar -xvzf mysql-connector-java-${MYSQL_CONN_VERSION}.tar.gz \
+  && mv mysql-connector-java-${MYSQL_CONN_VERSION}/mysql-connector-java-${MYSQL_CONN_VERSION}-bin.jar /var/lib/guacamole/classpath/ \
+  && tar -xvzf guacamole-auth-ldap-${GUACAMOLE_VERSION}.tar.gz \
+  && mv guacamole-auth-ldap-${GUACAMOLE_VERSION}/lib/* /var/lib/guacamole/classpath/ \
+  && tar -xvzf guacamole-auth-noauth-${GUACAMOLE_VERSION}.tar.gz \
+  && mv guacamole-auth-noauth-${GUACAMOLE_VERSION}/lib/* /var/lib/guacamole/classpath/ \
+  && rm -rf /tmp/*
+
+# Enable AJP - http://stackoverflow.com/questions/24060950/delete-line-before-and-after-found-pattern
+RUN sed -i '$!N;/<Connector port="8009" protocol="AJP\/1.3" redirectPort="8443" \/>/{s/.*\n//p;$!N;d};P;D' /etc/${TOMCAT_VERSION}/server.xml
+
+WORKDIR ${CATALINA_HOME}
+
 EXPOSE 8009
-
-ADD ./tomcat/server.xml /etc/tomcat7/server.xml
+EXPOSE 8080
 
 CMD ["supervisord", "-c", "/etc/supervisor/supervisor.conf"]

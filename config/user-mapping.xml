@@ -1,9 +1,0 @@
-<user-mapping>
-	<authorize username="test1"  password="test1">
-		<connection name="Test1">
-			<protocol>rdp</protocol>
-			<param name="hostname">test-host1</param>
-			<param name="port">3389</param>
-		</connection>
-	</authorize>
-</user-mapping>
