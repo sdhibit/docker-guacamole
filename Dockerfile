@@ -43,7 +43,7 @@ RUN apt-get update && apt-get install -y \
   && (( find /usr/share/doc -depth -type f ! -name copyright|xargs rm || true )) \
   && (( find /usr/share/doc -empty|xargs rmdir || true )) 
 
-ENV GUACAMOLE_VERSION 0.9.4
+ENV GUACAMOLE_VERSION 0.9.5
 ENV GUACAMOLE_HOME /etc/guacamole
 ENV TOMCAT_VERSION tomcat7
 ENV CATALINA_BASE /var/lib/tomcat7
