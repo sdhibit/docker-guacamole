@@ -48,7 +48,8 @@ ENV GUACAMOLE_HOME /etc/guacamole
 ENV TOMCAT_VERSION tomcat7
 ENV CATALINA_BASE /var/lib/tomcat7
 ENV CATALINA_HOME /usr/share/tomcat7
-ENV MYSQL_CONN_VERSION 5.1.34 
+ENV MYSQL_CONN_VERSION 5.1.34
+ENV POSTGRE_CONN_VERSION 9.4-1201
 
 WORKDIR /tmp
 
@@ -74,14 +75,16 @@ ADD ./supervisor/guacd.sv.conf /etc/supervisor/conf.d/
 ADD ./supervisor/tomcat7.sv.conf /etc/supervisor/conf.d/
 
 # Add Extensions to Guacamole
-RUN wget http://downloads.sourceforge.net/project/guacamole/current/extensions/guacamole-auth-mysql-${GUACAMOLE_VERSION}.tar.gz \
+RUN wget http://downloads.sourceforge.net/project/guacamole/current/extensions/guacamole-auth-jdbc-${GUACAMOLE_VERSION}.tar.gz \
   && wget http://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-${MYSQL_CONN_VERSION}.tar.gz \
+  && wget https://jdbc.postgresql.org/download/postgresql-${POSTGRE_CONN_VERSION}.jdbc41.jar \
   && wget http://sourceforge.net/projects/guacamole/files/current/extensions/guacamole-auth-ldap-${GUACAMOLE_VERSION}.tar.gz \
   && wget http://sourceforge.net/projects/guacamole/files/current/extensions/guacamole-auth-noauth-${GUACAMOLE_VERSION}.tar.gz \
-  && tar -xvzf guacamole-auth-mysql-${GUACAMOLE_VERSION}.tar.gz \
-  && mv guacamole-auth-mysql-${GUACAMOLE_VERSION}/lib/* /var/lib/guacamole/classpath/ \
+  && tar -xvzf guacamole-auth-jdbc-${GUACAMOLE_VERSION}.tar.gz \
+  && mv guacamole-auth-jdbc-${GUACAMOLE_VERSION}/* /var/lib/guacamole/classpath/ \
   && tar -xvzf mysql-connector-java-${MYSQL_CONN_VERSION}.tar.gz \
   && mv mysql-connector-java-${MYSQL_CONN_VERSION}/mysql-connector-java-${MYSQL_CONN_VERSION}-bin.jar /var/lib/guacamole/classpath/ \
+  && mv postgresql-${POSTGRE_CONN_VERSION}.jdbc41.jar /var/lib/guacamole/classpath/ \
   && tar -xvzf guacamole-auth-ldap-${GUACAMOLE_VERSION}.tar.gz \
   && mv guacamole-auth-ldap-${GUACAMOLE_VERSION}/lib/* /var/lib/guacamole/classpath/ \
   && tar -xvzf guacamole-auth-noauth-${GUACAMOLE_VERSION}.tar.gz \
